@@ -1,8 +1,17 @@
-int MAX_ENEMIES = 1;
-int MAX_LIVES = 1;
+int MAX_ENEMIES = 3;
+int MAX_LIVES = 100;
 
+// The picture that the player must unveil
 PImage backgroundImage;
+
+// The custom mask (adapted to the specific picture) that is hidding the picture
 PImage maskImage;
+
+// An internal (invisible) mask that determines if a point is inside the border (#FFFFFF, playable region)
+// or outside of it (#000000, already unveiled region). Used to determine if an enemy has been killed (is
+// now on the unveiled region).
+PImage filledImage;
+
 PFont scoreFont;
 
 Cursor cursor;
@@ -11,6 +20,9 @@ Path excursionPath;
 ArrayList<Enemy> enemies = new ArrayList<Enemy>();
 boolean pause = false;
 int lives;
+int score;
+int maskInitialCount;
+int maskFreedCount;
 boolean gameOver;
 boolean gameOverAccepted;
 
@@ -118,7 +130,14 @@ class Cursor {
       assert(segmentIndex != -1);
       excursionPath = null;
 
-      // FIXME: Detect if any Enemy has become trapped in the filled (released) region and kill it.
+      ArrayList<Enemy> deadEnemies = new ArrayList<Enemy>();
+      for (Enemy e : enemies)
+        if (filledImage.pixels[width * e.y + e.x] == #000000) {
+          score += e.worth;
+          deadEnemies.add(e);
+        }
+      enemies.removeAll(deadEnemies);
+      
       // FIXME: Detect if the not yet filled region is too small and declare stage completion in that case.
       
 /*
@@ -624,8 +643,11 @@ class Enemy {
   int h;
   color background;
   PImage picture;
+  
+  // How many points are awarded when killing this enemy
+  int worth;
 
-  Enemy(int x, int y, String picture, color background) {
+  Enemy(int x, int y, String picture, color background, int worth) {
     x0 = x;
     y0 = y;
     x1 = round(random(100, width-100));
@@ -636,6 +658,7 @@ class Enemy {
     this.background = background;
     this.picture = loadImage(picture);
     this.picture.resize(w, h);
+    this.worth = worth;
   }
 
   boolean touches(Path path) {
@@ -813,21 +836,33 @@ void updateMask() {
   }
   g.endShape(CLOSE);
   g.endDraw();
-  PImage img = g.get();
+  filledImage = g.get();
   g = null;
-  img.loadPixels();
-  //maskImage = img;
+  filledImage.loadPixels();
   maskImage.loadPixels();
-  for (int i = 0; i < img.pixels.length; i++) {
-    if (img.pixels[i] == #000000) {
+
+  // FIXME: The maskImage can't be used "as is" to compute the initial count.
+  // We end up with things like this: Freed: 1161779, Total: 943052
+  maskFreedCount = 0;
+  for (int i = 0; i < filledImage.pixels.length; i++) {
+    if (filledImage.pixels[i] == #000000) {
       maskImage.pixels[i] = #00000000;
+      maskFreedCount++;
     }
   }
-  img = null;
   maskImage.updatePixels();
+  
+  if (maskInitialCount == 0)
+    for (int i = 0; i < maskImage.pixels.length; i++)
+      if (maskImage.pixels[i] == #00000000)
+        maskInitialCount++;
+
+  println("Freed: " + maskFreedCount + ", Total: " + maskInitialCount);
 }
 
 void newGame() {
+  maskInitialCount = 0;
+  maskFreedCount = 0;
   backgroundImage = loadImage("pics/chispa-01.jpg");
   backgroundImage.resize(width, height);
   maskImage = loadImage("pics/chispa-01-mask.png");
@@ -839,10 +874,12 @@ void newGame() {
   enemies = new ArrayList<Enemy>();
   for (int i = 0; i < MAX_ENEMIES; i++) {
     Enemy e = new Enemy(round(random(100, width-100)), round(random(100, height-100)),
-      "pics/block.png", color(round(random(100, 255)), round(random(100, 255)), round(random(100, 255))));
+      "pics/block.png", color(round(random(100, 255)), round(random(100, 255)), round(random(100, 255))),
+      1000);
     enemies.add(e);
   }
   lives = MAX_LIVES;
+  score = 0;
   gameOver = false;
   gameOverAccepted = false;
 }
@@ -862,7 +899,13 @@ void draw() {
   // Mask
   imageMode(CORNERS);
   image(maskImage, 0, 0, width, height);
-  
+
+/*
+  // Filled image
+  imageMode(CORNERS);
+  image(filledImage, 0, 0, width, height);
+*/
+
   // Enemies
   for (Enemy e : enemies)
     e.draw();
@@ -883,6 +926,18 @@ void draw() {
   textFont(scoreFont, 32);
   text("Lives: " + lives, 10, 40);
   
+  // Score
+  fill(#FFFFFF);
+  textAlign(LEFT);
+  textFont(scoreFont, 32);
+  text("Score: " + score, 210, 40);
+
+  // Freed count
+  fill(#FFFFFF);
+  textAlign(LEFT);
+  textFont(scoreFont, 32);
+  text("Freed: " + (float)maskFreedCount / (float)maskInitialCount, 410, 40);
+
   if (gameOver) {
     textAlign(CENTER);
     textFont(scoreFont, 128);

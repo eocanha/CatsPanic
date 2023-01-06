@@ -1,5 +1,5 @@
-int MAX_ENEMIES = 3;
-int MAX_LIVES = 100;
+int MAX_LIVES = 5;
+float FILL_GOAL = 0.85;
 
 // The picture that the player must unveil
 PImage backgroundImage;
@@ -17,14 +17,30 @@ PFont scoreFont;
 Cursor cursor;
 Path borderPath;
 Path excursionPath;
-ArrayList<Enemy> enemies = new ArrayList<Enemy>();
+ArrayList<Enemy> enemies;
+ArrayList<Stage> stages;
 boolean pause = false;
 int lives;
 int score;
+int stage;
 int maskInitialCount;
 int maskFreedCount;
 boolean gameOver;
-boolean gameOverAccepted;
+boolean gameCompleted;
+boolean uiPauseAccepted;
+boolean stageCompleted;
+
+class Stage {
+  String background;
+  String mask;
+  int enemyCount;
+
+  Stage(String background, String mask, int enemyCount) {
+    this.background = background;
+    this.mask = mask;
+    this.enemyCount = enemyCount;
+  }
+}
 
 class Cursor {
   int colorIndex = 0;
@@ -49,8 +65,6 @@ class Cursor {
       segmentIndex = nextSegmentIndex;
       s = borderPath.segments.get(segmentIndex);
     }
-
-    // FIXME: Disallow loops (the path crossing over itself) in excursions!!!
 
 /*
     println("filledDirection: ", directionToString(s.filledDirection), ", excursionMode: ", excursionMode);
@@ -82,8 +96,27 @@ class Cursor {
           y+=speed;
         break;       
     }
-    if (excursionMode && (x0 != x || y0 != y))
-      updateExcursion(x0, y0, x, y);
+    if (excursionMode && (x0 != x || y0 != y)) {
+      
+      // Don't allow loops in the excursion path
+      boolean wouldCreateLoop = false;
+      if (excursionPath.segments.size() > 2) {
+        Segment newSegment = new Segment(x0, y0, x, y, -1);
+        for (int i = 0; i < excursionPath.segments.size() - 2; i++) {
+          if (excursionPath.segments.get(i).intersects(newSegment)) {
+            wouldCreateLoop = true;
+            break;
+          }
+        }
+      }
+
+      if (wouldCreateLoop) {
+        x = x0;
+        y = y0;
+      } else {
+        updateExcursion(x0, y0, x, y);
+      }
+    }
   }
 
   void setExcursionMode(boolean excursionMode) {
@@ -138,8 +171,9 @@ class Cursor {
         }
       enemies.removeAll(deadEnemies);
       
-      // FIXME: Detect if the not yet filled region is too small and declare stage completion in that case.
-      
+      if ((float)maskFreedCount / (float)maskInitialCount > FILL_GOAL)
+        stageCompleted = true;
+
 /*
       println("Excursion finished properly. New borderPath:");
       println(borderPath.toString());
@@ -602,7 +636,7 @@ class Path {
     for (Segment s : segments) {
       line(s.x0, s.y0, s.x1, s.y1);
 
-/**/
+/*
       // Debug: Draw filledDirection markers
       switch (s.filledDirection) {
         case LEFT: line(s.x0, (s.y0+s.y1)/2, s.x0-10, (s.y0+s.y1)/2); break;
@@ -630,7 +664,7 @@ class Path {
           line(s.x1, s.y1, s.x1+10, s.y1-10);
           break;
       }
-/**/
+*/
     }
   }
 }
@@ -650,8 +684,9 @@ class Enemy {
   Enemy(int x, int y, String picture, color background, int worth) {
     x0 = x;
     y0 = y;
-    x1 = round(random(100, width-100));
-    y1 = round(random(100, height-100));
+    // Never generate a position outside of the initial border
+    x1 = round(random(60 + 130 / 2, width - (60 + 130 / 2)));
+    y1 = round(random(60 + 100 / 2, height - (60 + 100 / 2)));
     alpha01 = 0;
     this.w = 130;
     this.h = 100;
@@ -726,7 +761,7 @@ class Enemy {
       }
       if (lives == 0)
         gameOver = true;
-        gameOverAccepted = false;
+        uiPauseAccepted = false;
     }
 
     // Decide new target
@@ -759,7 +794,7 @@ class Enemy {
     stroke(#FF0000);
     line(x0, y0, x1, y1);
 
-    if (!pause && !gameOver)
+    if (!pause && !gameOver && !gameCompleted && !stageCompleted)
       alpha01 = alpha01 + 1.0 / (30.0 * 5.0);    
   }
 }
@@ -841,47 +876,71 @@ void updateMask() {
   filledImage.loadPixels();
   maskImage.loadPixels();
 
-  // FIXME: The maskImage can't be used "as is" to compute the initial count.
-  // We end up with things like this: Freed: 1161779, Total: 943052
-  maskFreedCount = 0;
+  boolean accumulateScore = true;
+  if (maskInitialCount == 0) {
+    // Don't accumulate score the first time
+    accumulateScore = false;
+    for (int i = 0; i < maskImage.pixels.length; i++) {
+      // We count colored pixels, those with alpha (most significant byte in 32 bit color) not zero 
+      if (maskImage.pixels[i] >> 8*3 != 0x00)
+        maskInitialCount++;
+    }
+  }
+
+  // Accumulate newly freed maxImage pixels
   for (int i = 0; i < filledImage.pixels.length; i++) {
-    if (filledImage.pixels[i] == #000000) {
-      maskImage.pixels[i] = #00000000;
+    if (filledImage.pixels[i] == #000000 && maskImage.pixels[i] >> 8*3 != 0x00) {
+      maskImage.pixels[i] = 0x00000000;
       maskFreedCount++;
+      if (accumulateScore)
+        score++;
     }
   }
   maskImage.updatePixels();
-  
-  if (maskInitialCount == 0)
-    for (int i = 0; i < maskImage.pixels.length; i++)
-      if (maskImage.pixels[i] == #00000000)
-        maskInitialCount++;
 
+/*
   println("Freed: " + maskFreedCount + ", Total: " + maskInitialCount);
+*/
 }
 
 void newGame() {
+  stage = -1;
+  lives = MAX_LIVES;
+  score = 0;
+  gameOver = false;
+  gameCompleted = false;
+  nextStage();
+}
+
+void nextStage() {
+  stage++;
+  if (stage > stages.size() - 1) {
+    stageCompleted = false;
+    gameCompleted = true;
+    uiPauseAccepted = true;
+    return;
+  }
+
+  Stage currentStage = stages.get(stage);
   maskInitialCount = 0;
   maskFreedCount = 0;
-  backgroundImage = loadImage("pics/chispa-01.jpg");
+  backgroundImage = loadImage(currentStage.background);
   backgroundImage.resize(width, height);
-  maskImage = loadImage("pics/chispa-01-mask.png");
+  maskImage = loadImage(currentStage.mask);
   maskImage.resize(width, height);
   borderPath = new Path(width, height);
   updateMask();
   excursionPath = null;
   cursor = new Cursor();
   enemies = new ArrayList<Enemy>();
-  for (int i = 0; i < MAX_ENEMIES; i++) {
+  for (int i = 0; i < currentStage.enemyCount; i++) {
     Enemy e = new Enemy(round(random(100, width-100)), round(random(100, height-100)),
       "pics/block.png", color(round(random(100, 255)), round(random(100, 255)), round(random(100, 255))),
       1000);
     enemies.add(e);
   }
-  lives = MAX_LIVES;
-  score = 0;
-  gameOver = false;
-  gameOverAccepted = false;
+  uiPauseAccepted = false;
+  stageCompleted = false;
 }
 
 void setup() {
@@ -889,7 +948,29 @@ void setup() {
   size(1500,1000);
   frameRate(30);
   scoreFont = createFont("Arial", 16, true);
+  stages = new ArrayList<Stage>();
+  stages.add(new Stage("pics/chispa-01.jpg", "pics/chispa-01-mask.png", 0));
+  //stages.add(new Stage("pics/chispa-02.jpg", "pics/chispa-02-mask.png", 3));
+  //stages.add(new Stage("pics/chispa-03.jpg", "pics/chispa-03-mask.png", 5));
   newGame();
+}
+
+void drawHUD(int deltaX, int deltaY, color textColor) {
+  fill(textColor);
+  textAlign(LEFT);
+  textFont(scoreFont, 32);
+
+  // Lives
+  text("Lives: " + lives, 10+deltaX, 40+deltaY);
+  
+  // Freed count
+  text("Freed: " + 100 * maskFreedCount / maskInitialCount + "%", 210+deltaX, 40+deltaY);
+
+  // Stage
+  text("Stage: " + (stage+1), 410+deltaX, 40+deltaY);
+
+  // Score
+  text("Score: " + score, 610+deltaX, 40+deltaY);
 }
 
 void draw() {
@@ -920,36 +1001,40 @@ void draw() {
   // Cursor
   cursor.draw();
   
-  // Lives
-  fill(#FFFFFF);
-  textAlign(LEFT);
-  textFont(scoreFont, 32);
-  text("Lives: " + lives, 10, 40);
-  
-  // Score
-  fill(#FFFFFF);
-  textAlign(LEFT);
-  textFont(scoreFont, 32);
-  text("Score: " + score, 210, 40);
-
-  // Freed count
-  fill(#FFFFFF);
-  textAlign(LEFT);
-  textFont(scoreFont, 32);
-  text("Freed: " + (float)maskFreedCount / (float)maskInitialCount, 410, 40);
+  // Simulate outlined text
+  // See: https://forum.processing.org/two/discussion/comment/68481/#Comment_68481
+  for (int deltaX = -1; deltaX <= 1; deltaX++)
+    for (int deltaY = -1; deltaY <= 1; deltaY++)
+      drawHUD(deltaX, deltaY, #000000);
+  drawHUD(0, 0, #FFFFFF);
 
   if (gameOver) {
     textAlign(CENTER);
     textFont(scoreFont, 128);
     text("GAME OVER!", width/2, height/2);
   }
+
+  if (stageCompleted) {
+    textAlign(CENTER);
+    textFont(scoreFont, 128);
+    text("STAGE CLEAR!", width/2, height/2);
+  }
+
+  if (gameCompleted) {
+    textAlign(CENTER);
+    textFont(scoreFont, 128);
+    text("CONGRATULATIONS,\n GAME COMPLETED!", width/2, height/2);
+  }
 }
 
 void keyPressed() {
-  if (gameOver) {
+  if (gameOver || gameCompleted) {
     // We don't want to auto-accept because the player just keeps pressing the move keys.
-    if (gameOverAccepted)
+    if (uiPauseAccepted)
       newGame();
+  } else if (stageCompleted) {
+    if (uiPauseAccepted)
+      nextStage();
   } else {
     if (key == CODED) {
       switch (keyCode) {
@@ -978,8 +1063,8 @@ void keyPressed() {
 }
 
 void keyReleased() {
-  if (gameOver) {
-    gameOverAccepted = true;
+  if (gameOver || stageCompleted || gameCompleted) {
+    uiPauseAccepted = true;
   } else {
     switch (key) {
       case ' ':

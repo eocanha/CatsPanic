@@ -816,9 +816,9 @@ void setup() {
   frameRate(30);
   scoreFont = createFont("Arial", 16, true);
   stages = new ArrayList<Stage>();
-  stages.add(new Stage("pics/chispa-01.jpg", "pics/chispa-01-mask.png", 0));
-  //stages.add(new Stage("pics/chispa-02.jpg", "pics/chispa-02-mask.png", 3));
-  //stages.add(new Stage("pics/chispa-03.jpg", "pics/chispa-03-mask.png", 5));
+  stages.add(new Stage("pics/chispa-01.jpg", "pics/chispa-01-mask.png", 1));
+  stages.add(new Stage("pics/chispa-02.jpg", "pics/chispa-02-mask.png", 3));
+  stages.add(new Stage("pics/chispa-03.jpg", "pics/chispa-03-mask.png", 5));
   newGame();
 }
 

@@ -66,10 +66,6 @@ class Cursor {
       s = borderPath.segments.get(segmentIndex);
     }
 
-/*
-    println("filledDirection: ", directionToString(s.filledDirection), ", excursionMode: ", excursionMode);
-*/
-
     // Excursions from square corners should be able to be started in two directions. We should consider
     // the reversedFilledDirection from each of the segments that conform the corner.
     IntList validDirectionsForStartingExcursion = new IntList();
@@ -133,11 +129,6 @@ class Cursor {
       }
     }
 
-/*
-    println("CurrentSegment: ", (currentSegment != null) ? currentSegment.toString() : "null");
-    println("DeltaSegment: ", deltaSegment.toString());
-*/
-
     if (currentSegment == null) {
       currentSegment = deltaSegment;
       excursionPath.segments.add(currentSegment);
@@ -151,9 +142,7 @@ class Cursor {
         excursionPath.segments.add(deltaSegment);
       }
     }
-/*
-    println("Excursion path: ", excursionPath.toString());
-*/
+
     Segment intersectingBorderPathSegment = excursionPath.findOtherPathIntersectedSegment(borderPath);
     if (intersectingBorderPathSegment != null) {
       cursor.setExcursionMode(false);
@@ -173,11 +162,6 @@ class Cursor {
       
       if ((float)maskFreedCount / (float)maskInitialCount > FILL_GOAL)
         stageCompleted = true;
-
-/*
-      println("Excursion finished properly. New borderPath:");
-      println(borderPath.toString());
-*/
     }
   }
 
@@ -237,9 +221,6 @@ class Segment {
       && min(y0, y1) <= other.y0 && max(y0, y1) >= other.y0
       && min(other.x0, other.x1) <= x0 && max(other.x0, other.x1) >= x0)
       result=true;
-/*
-    println(toString(), " intersects ", other.toString(), ": ", result);
-*/
     return result;
   }
 
@@ -249,9 +230,6 @@ class Segment {
       result=true;
     else if (isVertical() && x == x0 && min(y0, y1) <= y && max(y0, y1) >= y)
       result=true;
-/*
-    println(toString(), " intersects [", x, ", ", y,"]: ", result);
-*/
     return result;
   }
 
@@ -335,17 +313,6 @@ class Path {
       assert(currentSegment.x1 == potentialNextSegment.x0 && currentSegment.y1 == potentialNextSegment.y0);
       potentialNextSegmentDirection = potentialNextSegment.getDirection();
     }
-    
-    /*
-    println("currentSegment: (", currentSegmentIndex, ") [", currentSegment.x0, ", ", currentSegment.y0, "] - [", currentSegment.x1, ", ", currentSegment.y1, "]");
-    if (potentialNextSegment != null)
-      println("potentialNextSegment: (", potentialNextSegmentIndex, ") ",
-        "[", potentialNextSegment.x0, ", ", potentialNextSegment.y0, "] - ",
-        "[", potentialNextSegment.x1, ", ", potentialNextSegment.y1, "]",
-        " (", directionToString(potentialNextSegmentDirection), ")");
-    else
-      println("potentialNextSegment: (", potentialNextSegmentIndex, ")";
-    */
 
     if (direction == potentialNextSegmentDirection)
       nextSegmentIndex = potentialNextSegmentIndex;
@@ -364,9 +331,6 @@ class Path {
         break;
       }
     }
-/*
-    println("findOtherPathIntersectedSegment: ", (otherPathIntersectedSegment != null) ? otherPathIntersectedSegment.toString() : "null");
-*/
     return otherPathIntersectedSegment;
   }
   
@@ -450,14 +414,6 @@ class Path {
       fromStartToEnd.add(endSplit.get(0));
     }
 
-/*
-    println("mustReverseOther: ", mustReverseOther);
-    println("beforeStart: ", toString(beforeStart));
-    println("excursion: ", toString(other.segments));
-    println("afterEnd: ", toString(afterEnd));
-    println("fromStartToEnd: ", toString(fromStartToEnd));
-*/
-
     // Two possible polygon splits. We choose the one with the biggest area.
     ArrayList<Segment> segmentsA = new ArrayList<Segment>();
     segmentsA.addAll(beforeStart);
@@ -475,10 +431,6 @@ class Path {
     else
       segments = segmentsB;
 
-/*
-    println("segmentsA: ", segmentsA.toString());
-    println("segmentsB: ", segmentsB.toString());
-*/
     recomputeFilledDirection();
   }
   
@@ -495,14 +447,7 @@ class Path {
     int lastDirection = -1;
     int newDirection = -1;
 
-/*
-    println("recomputeFilledDirection():");
-*/
-
     for (int j = 0; j < 2; j++) {
-/*
-      println("j: " + j);
-*/
       for (int i = 0; i < segments.size(); i++) {
         Segment s = segments.get(i);
         newDirection = s.getDirection();
@@ -606,12 +551,6 @@ class Path {
               break;
           }
         }        
-
-/*
-        println("Segment: " + s.toString());
-        println("lastFilledDirection: " + directionToString(lastFilledDirection));
-        println("lastDirection: " + directionToString(lastDirection));
-*/
         lastFilledDirection = s.filledDirection;
         lastDirection = s.getDirection();
       }
@@ -635,36 +574,6 @@ class Path {
     
     for (Segment s : segments) {
       line(s.x0, s.y0, s.x1, s.y1);
-
-/*
-      // Debug: Draw filledDirection markers
-      switch (s.filledDirection) {
-        case LEFT: line(s.x0, (s.y0+s.y1)/2, s.x0-10, (s.y0+s.y1)/2); break;
-        case RIGHT: line(s.x0, (s.y0+s.y1)/2, s.x0+10, (s.y0+s.y1)/2); break;
-        case UP: line((s.x0+s.x1)/2, s.y0, (s.x0+s.x1)/2, s.y0-10); break;
-        case DOWN: line((s.x0+s.x1)/2, s.y0, (s.x0+s.x1)/2, s.y0+10); break;
-      }
-      
-      // Debug: Draw direction markers
-      switch (s.getDirection()) {
-        case LEFT:
-          line(s.x1, s.y1, s.x1+10, s.y1-10);
-          line(s.x1, s.y1, s.x1+10, s.y1+10);
-          break;
-        case RIGHT:
-          line(s.x1, s.y1, s.x1-10, s.y1-10);
-          line(s.x1, s.y1, s.x1-10, s.y1+10);
-          break;
-        case UP:
-          line(s.x1, s.y1, s.x1-10, s.y1+10);
-          line(s.x1, s.y1, s.x1+10, s.y1+10);
-          break;
-        case DOWN:
-          line(s.x1, s.y1, s.x1-10, s.y1-10);
-          line(s.x1, s.y1, s.x1+10, s.y1-10);
-          break;
-      }
-*/
     }
   }
 }
@@ -699,42 +608,22 @@ class Enemy {
   boolean touches(Path path) {
     if (pause)
       return false;
-/*
-    println("touches(): Enemy [", round(x - w/2), ", ", round(y - h/2), "] - [", round(x + w/2), ", ", round(y + h/2), "]");
-*/
+
     for (Segment s : path.segments) {
       if (s.isHorizontal()) {
-/*
-        println(s.toString(), " is horizontal.");
-*/
         boolean segmentYInsideEnemy = round(y - h/2) <= s.y0 && s.y0 <= round(y + h/2); 
         boolean segmentMinXInsideOrLeftEnemy = min(s.x0, s.x1) <= round(x + h/2);
         boolean segmentMaxXInsideOrRightEnemy = max(s.x0, s.x1) >= round(x - h/2);
-/*
-        println("segmentYInsideEnemy: ", segmentYInsideEnemy, ", segmentMinXInsideOrLeftEnemy: ", segmentMinXInsideOrLeftEnemy, ", segmentMaxXInsideOrRightEnemy: ", segmentMaxXInsideOrRightEnemy);
-*/
 
         if (segmentYInsideEnemy && segmentMinXInsideOrLeftEnemy && segmentMaxXInsideOrRightEnemy) {
-/*
-          println("return true");
-*/
           return true;
         }
       } else {
-/*
-        println(s.toString(), " is vertical.");
-*/
         boolean segmentXInsideEnemy = round(x - w/2) <= s.x0 && s.x0 <= round(x + w/2); 
         boolean segmentMaxYInsideOrAboveEnemy = max(s.y0, s.y1) >= round(y - h/2);
         boolean segmentMinYInsideOrBelowEnemy = min(s.y0, s.y1) <= round(y + h/2);
-/*
-        println("segmentXInsideEnemy: ", segmentXInsideEnemy, ", segmentMaxYInsideOrAboveEnemy: ", segmentMaxYInsideOrAboveEnemy, ", segmentMinYInsideOrBelowEnemy: ", segmentMinYInsideOrBelowEnemy);
-*/
 
         if (segmentXInsideEnemy && segmentMaxYInsideOrAboveEnemy && segmentMinYInsideOrBelowEnemy) {
-/*
-          println("return true");
-*/
           return true;
         }
       }
@@ -766,13 +655,6 @@ class Enemy {
 
     // Decide new target
     if (alpha01 > 1.0 || touches(borderPath)) {
-/*
-      // DEBUG: Swap points 0 & 1 to just reverse the path and ease debugging.
-      int tmp;
-      tmp = x0; x0 = x1; x1 = tmp;
-      tmp = y0; y0 = y1; y1 = tmp;
-*/
-
       x0 = oldX;
       y0 = oldY;
       x1 = round(random(100, width-100));
@@ -790,9 +672,6 @@ class Enemy {
     rect(x, y, w, h);
     imageMode(CENTER);
     image(picture, x, y, w, h);
-
-    stroke(#FF0000);
-    line(x0, y0, x1, y1);
 
     if (!pause && !gameOver && !gameCompleted && !stageCompleted)
       alpha01 = alpha01 + 1.0 / (30.0 * 5.0);    
@@ -834,15 +713,7 @@ ArrayList<Segment> sanitizeSegments(ArrayList<Segment> segments) {
   ArrayList<Segment> result = new ArrayList<Segment>();
   Segment lastSegment = segments.size()>0 ? segments.get(segments.size()-1) : null;
 
-/*  
-  println("sanitizeSegments():");
-*/
-
   for (Segment s : segments) {
-/*
-    println("lastSegment: " + (lastSegment != null ? lastSegment.toString() : "null"));
-    println("s: " + s.toString());
-*/
     if (s.distance() > 0)
       if (lastSegment != null && lastSegment.getDirection() == s.getDirection()) {
         lastSegment.merge(s);
@@ -897,10 +768,6 @@ void updateMask() {
     }
   }
   maskImage.updatePixels();
-
-/*
-  println("Freed: " + maskFreedCount + ", Total: " + maskInitialCount);
-*/
 }
 
 void newGame() {
@@ -980,12 +847,6 @@ void draw() {
   // Mask
   imageMode(CORNERS);
   image(maskImage, 0, 0, width, height);
-
-/*
-  // Filled image
-  imageMode(CORNERS);
-  image(filledImage, 0, 0, width, height);
-*/
 
   // Enemies
   for (Enemy e : enemies)

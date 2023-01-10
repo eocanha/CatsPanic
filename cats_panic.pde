@@ -836,6 +836,8 @@ void setup() {
   stages.add(new Stage("pics/chispa-02.jpg", "pics/chispa-02-mask.png", 3));
   stages.add(new Stage("pics/chispa-03.jpg", "pics/chispa-03-mask.png", 5));
   stages.add(new Stage("pics/dali-01.jpg", "pics/dali-01-mask.png", 5));
+  stages.add(new Stage("pics/polar-01.jpg", "pics/polar-01-mask.png", 5));
+  stages.add(new Stage("pics/polar-01.jpg", "pics/polar-01-mask.png", 5));
   newGame();
 }
 

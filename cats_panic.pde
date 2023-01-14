@@ -47,11 +47,13 @@ boolean uiPauseAccepted;
 boolean stageCompleted;
 
 class Stage {
+  String name;
   String background;
   String mask;
   int enemyCount;
 
-  Stage(String background, String mask, int enemyCount) {
+  Stage(String name, String background, String mask, int enemyCount) {
+    this.name = name;
     this.background = background;
     this.mask = mask;
     this.enemyCount = enemyCount;
@@ -831,13 +833,25 @@ void setup() {
   size(1500,1000);
   frameRate(30);
   scoreFont = createFont("Arial", 16, true);
+  String fileName = "stages.conf";
+  String[] lines = loadStrings(fileName);
   stages = new ArrayList<Stage>();
-  stages.add(new Stage("pics/chispa-01.jpg", "pics/chispa-01-mask.png", 1));
-  stages.add(new Stage("pics/chispa-02.jpg", "pics/chispa-02-mask.png", 3));
-  stages.add(new Stage("pics/chispa-03.jpg", "pics/chispa-03-mask.png", 5));
-  stages.add(new Stage("pics/dali-01.jpg", "pics/dali-01-mask.png", 5));
-  stages.add(new Stage("pics/polar-01.jpg", "pics/polar-01-mask.png", 5));
-  stages.add(new Stage("pics/polar-01.jpg", "pics/polar-01-mask.png", 5));
+  int lineNumber = 0;
+  for (String line : lines) {
+    lineNumber++;
+    if (line.startsWith("#"))
+      continue;
+    String[] tokens = split(line, ",");
+    if (tokens.length != 4) {
+      println("Syntax error in " + fileName + ": Line " + lineNumber +" has " + tokens.length + " fields but it should have 4");
+      continue;
+    }
+    String stageName = trim(tokens[0]);
+    String picture = trim(tokens[1]);
+    String mask = trim(tokens[2]);
+    int numberOfEnemies = int(trim(tokens[3]));
+    stages.add(new Stage(stageName, picture, mask, numberOfEnemies));
+  }
   newGame();
 }
 
@@ -863,23 +877,25 @@ void draw() {
   // Background
   background(backgroundImage);
   
-  // Mask
-  imageMode(CORNERS);
-  image(maskImage, 0, 0, width, height);
+  if (!(stageCompleted || gameCompleted)) {
+    // Mask
+    imageMode(CORNERS);
+    image(maskImage, 0, 0, width, height);
 
-  // Enemies
-  for (Enemy e : enemies)
-    e.draw();
-  
-  // Path
-  borderPath.draw();
-  
-  // Excursion path
-  if (excursionPath != null)
-    excursionPath.draw();
-  
-  // Cursor
-  cursor.draw();
+    // Enemies
+    for (Enemy e : enemies)
+      e.draw();
+    
+    // Path
+    borderPath.draw();
+    
+    // Excursion path
+    if (excursionPath != null)
+      excursionPath.draw();
+    
+    // Cursor
+    cursor.draw();
+  }
   
   // Simulate outlined text
   // See: https://forum.processing.org/two/discussion/comment/68481/#Comment_68481
@@ -897,7 +913,7 @@ void draw() {
   if (stageCompleted) {
     textAlign(CENTER);
     textFont(scoreFont, 128);
-    text("STAGE CLEAR!", width/2, height/2);
+    text("STAGE " + stages.get(stage).name + " CLEAR!", width/2, height/2);
   }
 
   if (gameCompleted) {
